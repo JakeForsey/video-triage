@@ -34,7 +34,7 @@ define("debug", default=False, help="run in debug mode")
 class Application(Application):
     def __init__(self):
         handlers = [
-            (r"/projects", ProjectsHandler),                # returns available 
+            (r"/projects", ProjectsHandler),                # returns available projects
             (r"/create_project", CreateUserHandler),        # creates a project folder structure given a: project_id
             (r"/users", UsersHandler),                      # returns available users for requested: project_id
             (r"/create_user", CreateUserHandler),           # creates a user folder structure given a: project_id, user_id

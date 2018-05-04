@@ -2,6 +2,8 @@
 
 class Config:
 
+	STOP_WORDS = ['a', '.', 'the', 'with', 'of', 'in', 'is', 'on']
+
 	ENCODER_PATH = 'models/encoder.pkl'
 	DECODER_PATH = 'models/decoder.pkl'
 

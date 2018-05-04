@@ -55,7 +55,7 @@ def load_model(vocab_path, embed_size, hidden_size, num_layers, encoder_path, de
     return encoder, decoder, vocab, transform
 
 
-def caption_video(encoder, decoder, vocab, transform, video, fps=0.1, show=False):
+def caption_video(encoder, decoder, vocab, transform, video, fps=0.1, save=False, image_dir=None):
     # Image preprocessing
     report = []
     for i, frame in enumerate(video.iter_frames(fps=fps)):
@@ -90,11 +90,10 @@ def caption_video(encoder, decoder, vocab, transform, video, fps=0.1, show=False
         print(time_stamp, sentence)
 
         # Print out image and generated caption
-        if show:
+        if save == 'true' and image_dir:
             plt.axis('off')
             plt.imshow(frame)
             plt.title(sentence)
-            # plt.savefig(str(uuid.uuid4()))
-            plt.show()
+            plt.savefig(os.path.join(image_dir, str(uuid.uuid4()) + str(i)), bbox_images='tight')
 
     return report

@@ -34,13 +34,15 @@ define("debug", default=False, help="run in debug mode")
 class Application(Application):
     def __init__(self):
         handlers = [
-            (r"/projects", ProjectsHandler),                # returns available projects
+            (r"/projects", ProjectsHandler),                # returns available 
+            (r"/create_project", CreateUserHandler),        # creates a project folder structure given a: project_id
             (r"/users", UsersHandler),                      # returns available users for requested: project_id
-            (r"/available_files", AvailableFilesHandler),   # returns available files for requested: project_id, user_id, file_type [video, report or image]
-            (r"/upload", UploadHandler),                    # uploads a file for the reuqested: project_id, user_id and file_type
-            (r"/", Userform),                               # temporary handler to test upload implementation
-            (r"/process_video", ProcessVideoHandler),       # begins processing the requested video: project_id, user_id, video_id
-            (r"/process_reports", ProcessReportsHandler)      # begins processing all the requested reports: project_id
+            (r"/create_user", CreateUserHandler),           # creates a user folder structure given a: project_id, user_id
+            (r"/available_files", AvailableFilesHandler),   # returns available files for requested: project_id, user_id, file_type [video, report]
+            (r"/upload", UploadHandler),                    # uploads a file for the requested: project_id, user_id and file_type
+            (r"/", Userform),                               # temporary index to test upload implementation
+            (r"/process_video", ProcessVideoHandler),       # begins processing the requested video: project_id, user_id, video_id (if save='true', captioned images will be saved)
+            (r"/process_reports", ProcessReportsHandler)    # begins processing all the requested reports: project_id
         ]
 
         settings = dict(
@@ -60,6 +62,20 @@ class ProjectsHandler(RequestHandler):
         self.write(json.dumps({'projects': projects}))
 
 
+class CreateProjectHandler(RequestHandler):
+    def get(self):
+        project = self.get_argument('project_id')
+
+        if os.path.isdir(os.path.join('projects', project_id)):
+
+            self.write(json.dumps({'response': 'Project already exists'}))
+
+        else:
+            os.path.mkdir(os.path.join('projects', project_id))
+
+            self.write(json.dumps({'response': 'Project created'}))
+
+
 class UsersHandler(RequestHandler):
     def get(self):
         try:
@@ -69,7 +85,25 @@ class UsersHandler(RequestHandler):
             self.write(json.dumps({'users': users}))
 
         except Exception as e:
-            self.write(json.dumps({ 'error': str(e)}))
+            self.write(json.dumps({'error': str(e)}))
+
+
+class CreateUserHandler(RequestHandler):
+    def get(self):
+        project = self.get_argument('project_id')
+        user = self.get_argument('user_id')
+
+        if os.path.isdir(os.path.join('projects', project, user)):
+
+            self.write(json.dumps({'response': 'User already exists'}))
+
+        else:
+            os.mkdir(os.path.join('projects', project, user))
+            os.mkdir(os.path.join('projects', project, user, 'reports'))
+            os.mkdir(os.path.join('projects', project, user, 'videos'))
+            os.mkdir(os.path.join('projects', project, user, 'images'))
+
+            self.write(json.dumps({'response': 'User created'}))
 
 
 class AvailableFilesHandler(RequestHandler):
@@ -78,7 +112,7 @@ class AvailableFilesHandler(RequestHandler):
             project = self.get_argument('project_id')
             user = self.get_argument('user_id')
             file_type = self.get_argument('file_type')
-            print(os.path.join('projects', project, user, file_type + 's'))
+
             files = os.listdir(os.path.join('projects', project, user, file_type + 's'))
 
             self.write(json.dumps({file_type: files}))
@@ -90,6 +124,7 @@ class AvailableFilesHandler(RequestHandler):
 # temporary handler for checking upload functionality
 class Userform(RequestHandler):
     def get(self):
+
         self.render("fileuploadform.html")
 
 
@@ -117,7 +152,7 @@ class ProcessVideoHandler(RequestHandler):
     executor = ThreadPoolExecutor(max_workers=1)
 
     @run_on_executor
-    def process_video(self, project, user, video):
+    def process_video(self, project, user, video, save):
         video = VideoFileClip(os.path.join('projects', project, user, 'videos', video))
 
         encoder, decoder, vocab, transform = caption.load_model(vocab_path=Config.VOCAB_PATH, 
@@ -133,59 +168,59 @@ class ProcessVideoHandler(RequestHandler):
                                           transform=transform,
                                           video=video,
                                           fps=0.1,
-                                          show=False)
+                                          save=save,
+                                          image_dir=os.path.join('projects', project, user, 'images'))
 
         return report
 
     @coroutine
     def get(self):
-            project = self.get_argument('project_id')
-            user = self.get_argument('user_id')
-            video = self.get_argument('video_id')
-            report = yield self.process_video(project, user, video)
+        project = self.get_argument('project_id')
+        user = self.get_argument('user_id')
+        video = self.get_argument('video_id')
+        save = self.get_argument('save')
 
-            text = '\n'.join([record[1] for record in report])
+        report = yield self.process_video(project, user, video, save)
 
-            with open(os.path.join('projects', project, user, 'reports', os.path.splitext(video)[0] + '.txt'), 'w') as f:
-                for record in report:
-                    f.write('{}, {}\n'.format(record[0], record[1]))
+        with open(os.path.join('projects', project, user, 'reports', os.path.splitext(video)[0] + '.txt'), 'w') as f:
+            for record in report:
+                f.write('{}, {}\n'.format(record[0], record[1]))
 
-            self.write(json.dumps({'status': '{} has been processed!'.format(video)}))
+        self.write(json.dumps({'status': '{} has been processed!'.format(video)}))
 
 
 class ProcessReportsHandler(RequestHandler):
     executor = ThreadPoolExecutor(max_workers=2)
 
     @run_on_executor
-    def process_reports(self, project):
+    def process_reports(self, project, n_topics):
         documents = []
-        for user in [name for name in os.listdir(os.path.join('projects', project)) if os.path.isdir(os.path.join('projects', project, name))]:
-            reports = os.listdir(os.path.join('projects', project, user, 'reports'))
 
-            for report in reports:
-                with open(os.path.join('projects', project, user, 'reports', report), 'r') as file:
-                    raw_document = ''
-                    for record in file.readlines():
-                        raw_document += record.split(',')[1]
+        for root, directories, files in os.walk(os.path.join('projects', project)):
+            for file in files:
 
-                    document = []
-                    for word in raw_document.split():
-                        if word not in ['a', '.', 'the', 'with', 'of', 'in', 'is', 'on']:
-                            document.append(word)
+                if file.endswith('.txt'):
+                    with open(os.path.join(root, file), 'r') as report_file:
+                        words = []
+                        for line in report_file.readlines():
 
-                documents.append(' '.join(document))
+                            words.extend(word for word in line.split(',')[1].split() 
+                                                        if word not in Config.STOP_WORDS)
 
-        dictionary, corpus, lda_model = categorise.build_lda_model(documents, 3)
+                    documents.append(' '.join(words))
+
+        dictionary, corpus, lda_model = categorise.build_lda_model(documents, n_topics)
 
         return pyLDAvis.prepared_data_to_html(pyLDAvis.gensim.prepare(lda_model, corpus, dictionary, sort_topics=False))
 
     @coroutine
     def get(self):
-            project = self.get_argument('project_id')
+        project = self.get_argument('project_id')
+        n_topics = self.get_argument('n_topics')
 
-            html_visualisation = yield self.process_reports(project)
+        html_visualisation = yield self.process_reports(project, n_topics)
 
-            self.write(html_visualisation)
+        self.write(html_visualisation)
 
 
 def main():

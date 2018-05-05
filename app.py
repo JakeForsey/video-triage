@@ -35,7 +35,7 @@ class Application(Application):
     def __init__(self):
         handlers = [
             (r"/projects", ProjectsHandler),                # returns available projects
-            (r"/create_project", CreateUserHandler),        # creates a project folder structure given a: project_id
+            (r"/create_project", CreateProjectHandler),     # creates a project folder structure given a: project_id
             (r"/users", UsersHandler),                      # returns available users for requested: project_id
             (r"/create_user", CreateUserHandler),           # creates a user folder structure given a: project_id, user_id
             (r"/available_files", AvailableFilesHandler),   # returns available files for requested: project_id, user_id, file_type [video, report]

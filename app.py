@@ -66,12 +66,12 @@ class CreateProjectHandler(RequestHandler):
     def get(self):
         project = self.get_argument('project_id')
 
-        if os.path.isdir(os.path.join('projects', project_id)):
+        if os.path.isdir(os.path.join('projects', project)):
 
             self.write(json.dumps({'response': 'Project already exists'}))
 
         else:
-            os.path.mkdir(os.path.join('projects', project_id))
+            os.mkdir(os.path.join('projects', project))
 
             self.write(json.dumps({'response': 'Project created'}))
 

@@ -133,7 +133,7 @@ class DownloadFileHandler(RequestHandler):
         self.set_header('Content-Type', 'application/octet-stream')
         self.set_header('Content-Disposition', 'attachment; filename='+ file_name)
 
-        with open(os.path.join(project, user, file_type + 's', file_name), 'rb') as f:
+        with open(os.path.join('projects', project, user, file_type + 's', file_name), 'rb') as f:
             while True:
                 data = f.read(4096)
                 if not data:
@@ -150,7 +150,7 @@ class FileReaderHandler(RequestHandler):
         file_type = 'report'
         file_name = self.get_argument('file_name')
 
-        with open(os.path.join(project, user, file_type + 's', file_name), 'r') as f:
+        with open(os.path.join('projects', project, user, file_type + 's', file_name), 'r') as f:
             self.write(json.dumps(f.readlines()))
 
 

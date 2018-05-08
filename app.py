@@ -38,7 +38,9 @@ class Application(Application):
             (r"/create_project", CreateProjectHandler),     # creates a project folder structure given a: project_id
             (r"/users", UsersHandler),                      # returns available users for requested: project_id
             (r"/create_user", CreateUserHandler),           # creates a user folder structure given a: project_id, user_id
-            (r"/available_files", AvailableFilesHandler),   # returns available files for requested: project_id, user_id, file_type [video, report]
+            (r"/available_files", AvailableFilesHandler),   # returns available files for requested: project_id, user_id, file_type [video, report, image]
+            (r"/download_file", DownloadFileHandler),       # downloads requested: project_id, user_id, file_type [video, report, image], file_name 
+            (r"/file_reader", FileReaderHandler),           # returns contents of a report file for requested: project_id, user_id, file_name
             (r"/upload", UploadHandler),                    # uploads a file for the requested: project_id, user_id and file_type
             (r"/", Userform),                               # temporary index to test upload implementation
             (r"/process_video", ProcessVideoHandler),       # begins processing the requested video: project_id, user_id, video_id (if save='true', captioned images will be saved)
@@ -119,6 +121,37 @@ class AvailableFilesHandler(RequestHandler):
 
         except Exception as e:
             self.write(json.dumps({ 'error': str(e)}))
+
+
+class DownloadFileHandler(RequestHandler):
+    def get(self):
+        project = self.get_argument('project_id')
+        user = self.get_argument('user_id')
+        file_type = self.get_argument('file_type')
+        file_name = self.get_argument('file_name')
+
+        self.set_header('Content-Type', 'application/octet-stream')
+        self.set_header('Content-Disposition', 'attachment; filename='+ file_name)
+
+        with open(os.path.join(project, user, file_type + 's', file_name), 'rb') as f:
+            while True:
+                data = f.read(4096)
+                if not data:
+                    break
+                self.write(data)
+
+        self.finish()
+
+
+class FileReaderHandler(RequestHandler):
+    def get(self):
+        project = self.get_argument('project_id')
+        user = self.get_argument('user_id')
+        file_type = 'report'
+        file_name = self.get_argument('file_name')
+
+        with open(os.path.join(project, user, file_type + 's', file_name), 'r') as f:
+            self.write(json.dumps(f.readlines()))
 
 
 # temporary handler for checking upload functionality
